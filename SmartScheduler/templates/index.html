@@ -1,136 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>SmartSchedule Chatbot</title>
+  <title>Login</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-
-  <div class="timetable-container">
-    <div class="timetable-header">
-      <h3 id="week-range-display">Week of (Date Range)</h3>
-      <div>
-        <button class="nav-button" onclick="loadPreviousWeek()">Prev</button>
-        <button class="nav-button" onclick="loadNextWeek()">Next</button>
-      </div>
-    </div>
-    <div class="day-cards-wrapper" id="day-cards-wrapper">
-      </div>
-
-    <div style="flex-grow: 1; margin-top: 20px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; overflow-y: auto;">
-        <h4 style="margin-top:0;">Schedule Details for Selected Day</h4>
-        <p>No appointments scheduled.</p>
-    </div>
+  <div class="auth-box">
+    <h2>Login</h2>
+    <form method="POST">
+      <input type="text" name="username" placeholder="Username" required><br>
+      <input type="password" name="password" placeholder="Password" required><br>
+      <button type="submit">Login</button>
+    </form>
+    <p>No account? <a href="{{ url_for('signup') }}">Sign up</a></p>
   </div>
-
-
-  <div class="chat-container">
-    <h2>Welcome, {{ username }}!</h2>
-    <a href="{{ url_for('logout') }}">Logout</a>
-    <div id="chat-box"></div>
-
-    <div class="input-area">
-      <input id="user-input" type="text" placeholder="Type a message..." />
-      <button onclick="sendMessage()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.5 13a.5.5 0 0 1-.931-.11L8.382 9.3 2.427 6.567a.5.5 0 0 1 .11-.93l13-5.5a.5.5 0 0 1 .317 0zM6.832 8.687l1.57.7.813 3.406L14.615 1.7 6.832 8.687z"/>
-        </svg></button>
-    </div>
-  </div>
-
-  <script>
-    let currentWeekStart = new Date(); // Start date for the currently displayed week
-
-    // Function to format a date to 'Month Day, Year'
-    function formatDate(date) {
-        const options = { month: 'short', day: 'numeric' };
-        return date.toLocaleDateString('en-US', options);
-    }
-
-    // Function to calculate the start date of the week (Sunday)
-    function getWeekStart(date) {
-        let day = date.getDay(); // 0 is Sunday
-        // Subtracts the day number to get back to the most recent Sunday
-        let diff = date.getDate() - day;
-        return new Date(date.setDate(diff));
-    }
-
-    // Renders the 7 day cards (Sun, Mon, Tue, Wed, Thu, Fri, Sat)
-    function renderWeek(startDate) {
-      const wrapper = document.getElementById('day-cards-wrapper');
-      const header = document.getElementById('week-range-display');
-      wrapper.innerHTML = ''; // Clear existing cards
-
-      // Sunday is 0, Monday is 1, ..., Saturday is 6
-      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      let currentDate = new Date(startDate);
-      let weekEnd = new Date(startDate);
-
-      // The loop will run 7 times, covering Sun to Sat
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(currentDate); // Copy current date for card display
-
-        wrapper.innerHTML += `
-          <div class="day-card ${i === 0 ? 'active' : ''}">
-            <div class="day-name">${dayNames[date.getDay()]}</div>
-            <div class="day-date">${date.getDate()}</div>
-          </div>
-        `;
-
-        // Prepare for the next iteration
-        currentDate.setDate(currentDate.getDate() + 1);
-        if (i === 6) { // On the last iteration, calculate the end date for the header
-            weekEnd.setDate(weekEnd.getDate() + 6);
-        }
-      }
-
-      // Update the header display
-      header.textContent = `Week of ${formatDate(startDate)} - ${formatDate(weekEnd)}`;
-    }
-
-    // Navigation Logic
-    function loadPreviousWeek() {
-      // Move the currentWeekStart back 7 days
-      currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-      renderWeek(currentWeekStart);
-    }
-
-    function loadNextWeek() {
-      // Move the currentWeekStart forward 7 days
-      currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-      renderWeek(currentWeekStart);
-    }
-
-    // Initialize the calendar on load (start with the current week beginning on Sunday)
-    currentWeekStart = getWeekStart(currentWeekStart);
-    renderWeek(currentWeekStart);
-
-    // --- Existing Chat JavaScript Function ---
-    async function sendMessage() {
-      const input = document.getElementById("user-input");
-      const chatBox = document.getElementById("chat-box");
-      const userMessage = input.value.trim();
-      if (!userMessage) return;
-
-      // Add user message bubble
-      chatBox.innerHTML += `<div class="message user-message">${userMessage}</div>`;
-      input.value = "";
-      chatBox.scrollTop = chatBox.scrollHeight;
-
-      // Send to Flask backend
-      const res = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage })
-      });
-
-      const data = await res.json();
-
-      // Add bot reply bubble
-      chatBox.innerHTML += `<div class="message bot-message">${data.reply}</div>`;
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
-</script>
-
 </body>
 </html>
