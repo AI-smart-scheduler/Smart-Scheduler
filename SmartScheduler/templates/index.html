@@ -1,18 +1,50 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Login</title>
+  <title>SmartSchedule Chatbot</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <div class="auth-box">
-    <h2>Login</h2>
-    <form method="POST">
-      <input type="text" name="username" placeholder="Username" required><br>
-      <input type="password" name="password" placeholder="Password" required><br>
-      <button type="submit">Login</button>
-    </form>
-    <p>No account? <a href="{{ url_for('signup') }}">Sign up</a></p>
+
+  <div class="timetable-container">
+    <div class="timetable-header">
+
+      <!-- === START OF CHANGE === -->
+      <!-- The H3 "Week of..." is replaced by these selectors -->
+      <div class="date-selectors">
+        <select id="month-select" class="date-select"></select>
+        <select id="year-select" class="date-select"></select>
+      </div>
+      <!-- === END OF CHANGE === -->
+
+      <div>
+        <button class="nav-button" onclick="loadPreviousWeek()">Prev</button>
+        <button class="nav-button" onclick="loadNextWeek()">Next</button>
+      </div>
+    </div>
+    <div class="day-cards-wrapper" id="day-cards-wrapper">
+      </div>
+
+    <div id="schedule-details" style="flex-grow: 1; margin-top: 20px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; overflow-y: auto;">
+        <h4 style="margin-top:0;">Schedule Details</h4>
+        </div>
+    </div>
+
+
+  <div class="chat-container">
+    <h2>Welcome, {{ username }}!</h2>
+    <a href="{{ url_for('logout') }}">Logout</a>
+    <div id="chat-box"></div>
+
+    <div class="input-area">
+      <input id="user-input" type="text" placeholder="Type a message..." />
+      <button onclick="sendMessage()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.5 13a.5.5 0 0 1-.931-.11L8.382 9.3 2.427 6.567a.5.5 0 0 1 .11-.93l13-5.5a.5.5 0 0 1 .317 0zM6.832 8.687l1.57.T.813 3.406L14.615 1.7 6.832 8.687z"/>
+        </svg></button>
+    </div>
   </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
