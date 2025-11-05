@@ -2,21 +2,17 @@
 <html>
 <head>
   <title>SmartSchedule Chatbot</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='Logo.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
   <div class="timetable-container">
     <div class="timetable-header">
-
-      <!-- === START OF CHANGE === -->
-      <!-- The H3 "Week of..." is replaced by these selectors -->
       <div class="date-selectors">
         <select id="month-select" class="date-select"></select>
         <select id="year-select" class="date-select"></select>
       </div>
-      <!-- === END OF CHANGE === -->
-
       <div>
         <button class="nav-button" onclick="loadPreviousWeek()">Prev</button>
         <button class="nav-button" onclick="loadNextWeek()">Next</button>
@@ -24,16 +20,34 @@
     </div>
     <div class="day-cards-wrapper" id="day-cards-wrapper">
       </div>
-
     <div id="schedule-details" style="flex-grow: 1; margin-top: 20px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; overflow-y: auto;">
         <h4 style="margin-top:0;">Schedule Details</h4>
         </div>
-    </div>
+  </div>
 
 
   <div class="chat-container">
-    <h2>Welcome, {{ username }}!</h2>
-    <a href="{{ url_for('logout') }}">Logout</a>
+    <div class="welcome-header">
+      <h2>Welcome, {{ username }}!</h2>
+      <div class="notification-icon-container">
+          <svg id="notification-bell" class="notification-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" onclick="toggleNotificationPopup()">
+            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
+          </svg>
+           <div id="notificationPopup" class="notification-popup">
+             <div class="popup-content">
+
+               <h3>Pending Task Reminders</h3>
+               <div id="notification-list">
+                 </div>
+             </div>
+           </div>
+      </div>
+    </div>
+
+    <div class="header-links">
+      <a href="{{ url_for('logout') }}">Logout</a>
+      <a href="#" id="settings-button">Settings</a>
+    </div>
     <div id="chat-box"></div>
 
     <div class="input-area">
@@ -45,6 +59,46 @@
     </div>
   </div>
 
+  <div id="personalizationModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h3>Personalization</h3>
+        <span class="modal-close" id="modal-close-button">&times;</span>
+      </div>
+
+      <div class="modal-body">
+
+        <div class="modal-section">
+          <h4>Sleep & Wake Times</h4>
+          <div class="time-inputs">
+            <div class="form-group">
+              <label for="awake-time">I wake up at:</label>
+              <input type="time" id="awake-time" class="modal-input">
+            </div>
+            <div class="form-group">
+              <label for="sleep-time">I go to sleep at:</label>
+              <input type="time" id="sleep-time" class="modal-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h4>Ideal Study Windows</h4>
+          <div id="study-windows-container">
+            </div>
+          <button type.button" id="add-window-button" class="modal-button-secondary">Add Window</button>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="modal-cancel-button" class="modal-button-secondary">Cancel</button>
+        <button type="button" id="modal-save-button" class="modal-button-primary">Save</button>
+      </div>
+
+    </div>
+  </div>
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
