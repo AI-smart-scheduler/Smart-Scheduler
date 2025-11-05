@@ -292,3 +292,268 @@ button:hover {
 #year-select {
   flex-basis: 100px;
 }
+
+/* === START: Updated Styles === */
+    .welcome-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+      position: relative; /* Needed for positioning the modal */
+    }
+    .welcome-header h2 {
+      margin: 0;
+      margin-right: 8px;
+    }
+    .notification-icon-container { /* Wrapper for positioning */
+        position: relative;
+        display: inline-block; /* Allows positioning context */
+    }
+    .notification-icon {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      fill: #4B5563;
+      transition: fill 0.2s ease-in-out;
+      display: block; /* Prevents extra space below SVG */
+    }
+    .notification-icon:hover {
+      fill: #1F2937;
+    }
+
+    /* Styles for Notification Pop-up (modified from modal) */
+    .notification-popup {
+      display: none; /* Hidden by default */
+      position: absolute; /* Position relative to the icon container */
+      z-index: 1000; /* Sit on top */
+      top: 100%; /* Position below the icon */
+      right: 0; /* Align to the right edge of the icon container */
+      min-width: 250px; /* Minimum width */
+      max-width: 350px; /* Maximum width */
+      background-color: #ffffff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      margin-top: 5px; /* Small gap below the icon */
+    }
+
+    .popup-content {
+      padding: 15px;
+      position: relative;
+    }
+
+    .close-popup-button { /* Adjusted close button style */
+      color: #aaa;
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .close-popup-button:hover,
+    .close-popup-button:focus {
+      color: black;
+      text-decoration: none;
+    }
+
+     .popup-content h3 {
+        margin-top: 0;
+        margin-bottom: 10px;
+        font-size: 1rem;
+        color: #333;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 5px;
+     }
+
+    #notification-list p {
+      margin: 8px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    #notification-list p:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+     #notification-list p b {
+        color: #333;
+     }
+    /* === END: Updated Styles === */
+
+    /* ====== START: NEW MODAL STYLES ====== */
+
+.header-links {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 10px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.modal-backdrop.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-content {
+  background-color: #fefefe;
+  margin: auto;
+  padding: 20px;
+  border: 1px solid #888;
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.25rem;
+}
+
+.modal-close {
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: #000;
+}
+
+.modal-body {
+  padding: 15px 5px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.modal-section {
+  margin-bottom: 20px;
+}
+
+.modal-section h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #374151;
+}
+
+.time-inputs {
+  display: flex;
+  gap: 20px;
+}
+
+.form-group {
+  flex: 1;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4B5563;
+}
+
+/* Re-using and adjusting existing 'input' style for modal */
+.modal-input {
+  width: 100%;
+  padding: 10px;
+  margin: 0;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  box-sizing: border-box; /* Important */
+}
+
+.study-window-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.study-window-row select,
+.study-window-row input {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+  font-size: 0.9rem;
+}
+
+.study-window-row .day-select {
+  flex: 2;
+}
+.study-window-row .time-select {
+  flex: 1.5;
+}
+.study-window-row .focus-select {
+  flex: 1.5;
+}
+
+.window-delete-button {
+  background: none;
+  border: none;
+  color: #EF4444;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 5px;
+  width: auto; /* Override default button */
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 15px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Re-using and adjusting existing 'button' style for modal */
+.modal-button-primary,
+.modal-button-secondary {
+  width: auto;
+  padding: 10px 20px;
+}
+
+.modal-button-secondary {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+.modal-button-secondary:hover {
+  background: #d1d5db;
+}
+
+/* ====== END: NEW MODAL STYLES ====== */
