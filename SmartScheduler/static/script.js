@@ -50,11 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
           })
           .then(res => res.json())
           .then(data => {
-              const chatBox = document.getElementById("chat-box");
-              if (chatBox) {
-                  chatBox.innerHTML += `<div class="message bot-message">${data.reply || '...'}</div>`;
-                  setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 0);
-              }
+              // === START OF V6 CHANGE: Handle complex JSON response ===
+              handleChatResponse(data);
+              // === END OF V6 CHANGE ===
           })
           .catch(err => {
               console.error("Error triggering daily check-in:", err);
@@ -65,7 +63,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   triggerDailyCheckin(); // Run the check on page load.
 
-  // === START OF CHANGE: MODAL LOGIC ===
+  // Add 'Enter' key listener to the chat input
+  const userInput = document.getElementById('user-input');
+  if (userInput) {
+    userInput.addEventListener('keydown', (event) => {
+      // Check if the key pressed was 'Enter' and no modifiers (like Shift)
+      if (event.key === 'Enter' && !event.shiftKey) {
+        // Prevent the default action (like adding a new line)
+        event.preventDefault();
+        // Call the existing sendMessage function
+        sendMessage();
+      }
+    });
+  }
+
+  // === Personalization Modal Logic (Unchanged) ===
   const modal = document.getElementById('personalizationModal');
   const settingsButton = document.getElementById('settings-button');
   const closeButton = document.getElementById('modal-close-button');
@@ -76,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const openModal = () => {
     modal.classList.remove('hidden');
-    // Load existing data into modal (we'll fetch it)
     loadPersonalizationData();
   }
   const closeModal = () => modal.classList.add('hidden');
@@ -91,12 +102,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function createStudyWindowRow(data = {}) {
     const row = document.createElement('div');
     row.className = 'study-window-row';
-
     const dayVal = data.day || 'Monday';
     const startVal = data.start_time || '09:00';
     const endVal = data.end_time || '10:00';
     const focusVal = data.focus_level || 'medium';
-
     row.innerHTML = `
       <select class="day-select modal-input">
         ${dayNames.slice(1).concat(dayNames[0]).map(day => `<option value="${day}" ${day === dayVal ? 'selected' : ''}>${day}</option>`).join('')}
@@ -110,40 +119,29 @@ document.addEventListener('DOMContentLoaded', () => {
       </select>
       <button type="button" class="window-delete-button">&times;</button>
     `;
-
-    // Add event listener to the delete button
     row.querySelector('.window-delete-button').addEventListener('click', () => {
       row.remove();
     });
-
     windowsContainer.appendChild(row);
   }
 
   // Function to load existing user preferences into the modal
   async function loadPersonalizationData() {
-    // We can re-use the /get_schedule endpoint since it has all user data
-    // (Assuming app.py is updated to send preferences and windows)
     try {
         const res = await fetch('/get_schedule');
         const data = await res.json();
-
-        // This is a future-proof change; app.py needs to be updated to send this
         if (data.preferences) {
             document.getElementById('awake-time').value = data.preferences.awake_time || '07:00';
             document.getElementById('sleep-time').value = data.preferences.sleep_time || '23:00';
         }
-
-        // Clear old rows and load new ones
         windowsContainer.innerHTML = '';
         if (data.study_windows && data.study_windows.length > 0) {
             data.study_windows.forEach(window => createStudyWindowRow(window));
         } else {
-            // Add one blank row if none exist
             createStudyWindowRow();
         }
     } catch (e) {
         console.error("Could not load personalization data", e);
-        // Add one blank row on error
         windowsContainer.innerHTML = '';
         createStudyWindowRow();
     }
@@ -153,10 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
   async function savePersonalization() {
     const awakeTime = document.getElementById('awake-time').value;
     const sleepTime = document.getElementById('sleep-time').value;
-
     const windows = [];
     const windowRows = windowsContainer.querySelectorAll('.study-window-row');
-
     windowRows.forEach(row => {
       windows.push({
         day: row.querySelector('.day-select').value,
@@ -165,7 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
         focus_level: row.querySelector('.focus-select').value
       });
     });
-
     const dataToSend = {
       preferences: {
         awake_time: awakeTime,
@@ -173,45 +168,37 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       study_windows: windows
     };
-
-    // Send data to a new, dedicated endpoint
     try {
       const res = await fetch('/save_personalization', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dataToSend)
       });
-
       if (!res.ok) {
         throw new Error('Server responded with an error');
       }
-
       const result = await res.json();
 
-      // Give user feedback in the chat box
-      const chatBox = document.getElementById("chat-box");
-      chatBox.innerHTML += `<div class="message bot-message">${result.reply || 'Settings saved!'}</div>`;
-      setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 0);
+      // === START OF V6 CHANGE: Use new response handler ===
+      handleChatResponse(result);
+      // === END OF V6 CHANGE ===
 
       closeModal();
-
-      // Refresh the schedule display as the plan might have changed
       await loadScheduleData();
       displayDayDetails();
-
-    } catch (e) {
+    } catch (e)
+{
       console.error('Error saving personalization:', e);
-      // Show error in chat
       const chatBox = document.getElementById("chat-box");
       chatBox.innerHTML += `<div class="message bot-message" style="color: red;">Error: Could not save settings.</div>`;
       setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 0);
     }
   }
-  // === END OF CHANGE ===
+  // === END OF PERSONALIZATION MODAL LOGIC ===
 
 });
 
-// === Populates the selectors ===
+// === Populates the selectors (Unchanged) ===
 function initializeSelectors() {
   const deviceYear = new Date().getFullYear();
   monthNames.forEach((name, index) => {
@@ -223,7 +210,7 @@ function initializeSelectors() {
   }
 }
 
-// === Updates selectors based on selectedDate ===
+// === Updates selectors based on selectedDate (Unchanged) ===
 function updateSelectors() {
   const month = selectedDate.getMonth();
   const year = selectedDate.getFullYear();
@@ -239,7 +226,7 @@ function updateSelectors() {
   if (yearSelect) yearSelect.value = year;
 }
 
-// === Handles manual change of dropdowns ===
+// === Handles manual change of dropdowns (Unchanged) ===
 async function handleDateSelectorChange() {
   const newMonth = parseInt(monthSelect.value, 10);
   const newYear = parseInt(yearSelect.value, 10);
@@ -248,7 +235,7 @@ async function handleDateSelectorChange() {
   await renderWeek(newDate);
 }
 
-// === Filtering and Display Logic for Schedule Details ===
+// === Filtering and Display Logic for Schedule Details (MODIFIED FOR AM/PM) ===
 function displayDayDetails() {
     const detailsBox = document.getElementById('schedule-details');
     if (!detailsBox) return;
@@ -279,9 +266,13 @@ function displayDayDetails() {
         detailsBox.innerHTML += '<h5>My Study Plan</h5>';
         generatedPlanToday.sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""));
         generatedPlanToday.forEach(item => {
+            // === START OF CHANGE: Format time to 12-hour ===
+            const startTime = formatTime12Hour(item.start_time);
+            const endTime = formatTime12Hour(item.end_time);
             detailsBox.innerHTML += `<p style="color: #004a9c; background: #e6f7ff; padding: 5px; border-radius: 4px; margin: 4px 0;">
-                <b>${item.task}</b>: ${item.start_time} - ${item.end_time}
+                <b>${item.task}</b>: ${startTime} - ${endTime}
             </p>`;
+            // === END OF CHANGE ===
         });
     }
 
@@ -289,7 +280,11 @@ function displayDayDetails() {
         itemsFound = true;
         detailsBox.innerHTML += '<h5>Classes</h5>';
         classesToday.forEach(item => {
-            detailsBox.innerHTML += `<p><b>${item.subject}</b>: ${item.start_time} - ${item.end_time}</p>`;
+            // === START OF CHANGE: Format time to 12-hour ===
+            const startTime = formatTime12Hour(item.start_time);
+            const endTime = formatTime12Hour(item.end_time);
+            detailsBox.innerHTML += `<p><b>${item.subject}</b>: ${startTime} - ${endTime}</p>`;
+            // === END OF CHANGE ===
         });
     }
     if (tasksToday.length > 0) {
@@ -299,6 +294,7 @@ function displayDayDetails() {
             let deadlineTime = 'All day';
              if (item.deadline && item.deadline.includes('T')) {
                  try {
+                     // This was already using 12-hour format, so no change needed
                      deadlineTime = new Date(item.deadline).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
                  } catch (e) { console.warn("Could not format deadline time:", item.deadline); }
             }
@@ -317,7 +313,7 @@ function displayDayDetails() {
     }
 }
 
-// === handleDayClick ===
+// === handleDayClick (Unchanged) ===
 function handleDayClick(element, dateString) {
     const [year, month, day] = dateString.split('-').map(Number);
     selectedDate = new Date(year, month - 1, day);
@@ -331,7 +327,7 @@ function handleDayClick(element, dateString) {
     displayDayDetails();
 }
 
-// === loadScheduleData ===
+// === loadScheduleData (Unchanged) ===
 async function loadScheduleData() {
     try {
         const res = await fetch('/get_schedule');
@@ -344,10 +340,8 @@ async function loadScheduleData() {
             tasks: data.tasks || [],
             tests: data.tests || [],
             generated_plan: data.generated_plan || [],
-            // === START OF CHANGE: Make sure we store this data for the modal ===
             preferences: data.preferences || { awake_time: '07:00', sleep_time: '23:00'},
             study_windows: data.study_windows || []
-            // === END OF CHANGE ===
         };
     } catch (e) {
         console.error("Fetch error:", e);
@@ -364,6 +358,35 @@ function formatDate(date) {
     const options = { month: 'short', day: 'numeric' };
     return date.toLocaleDateString('en-US', options);
 }
+
+// === NEW HELPER FUNCTION (AM/PM) ===
+/**
+ * Converts a "HH:MM" string to a "H:MM AM/PM" string.
+ * @param {string} timeStr - The time string in 24-hour format (e.g., "14:30")
+ * @returns {string} - The time string in 12-hour format (e.g., "2:30 PM")
+ */
+function formatTime12Hour(timeStr) {
+    if (!timeStr || !timeStr.includes(':')) {
+        return timeStr; // Return original if format is unexpected
+    }
+    try {
+        const [hours, minutes] = timeStr.split(':');
+        const hourNum = parseInt(hours, 10);
+        const minNum = parseInt(minutes, 10);
+
+        const ampm = hourNum >= 12 ? 'PM' : 'AM';
+        const hour12 = hourNum % 12 || 12; // Convert 0 or 12 to 12
+
+        const minStr = minNum < 10 ? `0${minNum}` : `${minNum}`;
+
+        return `${hour12}:${minStr} ${ampm}`;
+    } catch (e) {
+        console.warn("Could not format time:", timeStr, e);
+        return timeStr; // Fallback to original
+    }
+}
+// === END NEW HELPER FUNCTION ===
+
 
 function getLocalDateString(date) {
     if (!(date instanceof Date) || isNaN(date)) {
@@ -389,23 +412,19 @@ function getWeekStart(date) {
     return d;
 }
 
-// === renderWeek ===
+// === renderWeek (Unchanged) ===
 async function renderWeek(dateToSelect = null) {
     const wrapper = document.getElementById('day-cards-wrapper');
     if (!wrapper) return;
     wrapper.innerHTML = '';
-
     let currentDateIterator = new Date(currentWeekStart);
-
     selectedDate = dateToSelect ? new Date(dateToSelect) : new Date(currentWeekStart);
     selectedDate.setHours(0,0,0,0);
     const selectedDateString = getLocalDateString(selectedDate);
-
     for (let i = 0; i < 7; i++) {
         const date = new Date(currentDateIterator);
         const dateString = getLocalDateString(date);
         const isActive = dateString === selectedDateString ? 'active' : '';
-
         if (typeof dayNames !== 'undefined' && dayNames[date.getDay()]) {
             wrapper.innerHTML += `
               <div class="day-card ${isActive}"
@@ -425,7 +444,7 @@ async function renderWeek(dateToSelect = null) {
     displayDayDetails();
 }
 
-// --- Navigation Logic ---
+// --- Navigation Logic (Unchanged) ---
 async function loadPreviousWeek() {
   currentWeekStart.setDate(currentWeekStart.getDate() - 7);
   await renderWeek(new Date(currentWeekStart));
@@ -435,15 +454,25 @@ async function loadNextWeek() {
   await renderWeek(new Date(currentWeekStart));
 }
 
-// === sendMessage ===
-async function sendMessage() {
+// === sendMessage (MODIFIED FOR V6) ===
+async function sendMessage(messageOverride = null) {
   const input = document.getElementById("user-input");
   const chatBox = document.getElementById("chat-box");
-  const userMessage = input.value.trim();
+
+  // Use the override message (from modal) or the input value
+  const userMessage = messageOverride || input.value.trim();
+
   if (!userMessage || !chatBox || !input) return;
 
-  chatBox.innerHTML += `<div class="message user-message">${userMessage}</div>`;
-  input.value = "";
+  // Only add to chat if it's not a hidden command
+  if (!messageOverride) {
+    chatBox.innerHTML += `<div class="message user-message">${userMessage}</div>`;
+  } else {
+    // Optionally, show what the user picked
+    chatBox.innerHTML += `<div class="message user-message"><em>(Selected priority: ${userMessage.split(": ")[1]})</em></div>`;
+  }
+
+  input.value = ""; // Clear input box
   setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 0);
 
   const selectedYear = yearSelect ? yearSelect.value : new Date().getFullYear().toString();
@@ -463,9 +492,12 @@ async function sendMessage() {
       }
 
       const data = await res.json();
-      chatBox.innerHTML += `<div class="message bot-message">${data.reply || 'No reply received.'}</div>`;
-       setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 0);
 
+      // === START OF V6 CHANGE: Handle complex response ===
+      handleChatResponse(data);
+      // === END OF V6 CHANGE ===
+
+      // Refresh schedule data *after* handling the response
       await loadScheduleData();
       displayDayDetails();
   } catch (error) {
@@ -475,7 +507,72 @@ async function sendMessage() {
   }
 }
 
-// === Notification Popup Functions ===
+// === NEW FUNCTION: handleChatResponse (V6) ===
+function handleChatResponse(data) {
+    const chatBox = document.getElementById("chat-box");
+    if (!data || !data.reply) {
+        chatBox.innerHTML += `<div class="message bot-message" style="color: red;">Error: Received an invalid response.</div>`;
+        return;
+    }
+
+    // 1. Add the bot's text reply to the chat
+    chatBox.innerHTML += `<div class="message bot-message">${data.reply}</div>`;
+    setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 0);
+
+    // 2. Check if the server sent a special "action"
+    if (data.action === 'show_priority_modal' && data.options) {
+        openPriorityModal(data.options);
+    }
+}
+
+// === NEW FUNCTION: openPriorityModal (V6) ===
+function openPriorityModal(options) {
+    const modal = document.getElementById('priorityConflictModal');
+    // We get the *real* modal elements from index.html
+    const content = document.getElementById('priority-modal-body-content');
+    const buttons = document.getElementById('priority-modal-footer-buttons');
+
+    if (!modal || !content || !buttons) {
+        console.error("Priority modal elements not found in HTML.");
+        return;
+    }
+
+    // Clear old buttons and set header text
+    buttons.innerHTML = '';
+    content.innerHTML = '<p>The AI planner found two tasks with the same deadline and priority. Which one should it work on first?</p>';
+
+    // Create a button for each option
+    options.forEach(optionName => {
+        const button = document.createElement('button');
+        button.className = 'modal-button-primary';
+        button.textContent = `Prioritize: ${optionName}`;
+
+        button.addEventListener('click', () => {
+            // Send a specific message back to the bot
+            sendMessage(`User priority choice: ${optionName}`);
+            modal.classList.add('hidden'); // Close modal
+        });
+
+        buttons.appendChild(button);
+    });
+
+    // Add a "cancel" or "auto" button
+    const autoButton = document.createElement('button');
+    autoButton.className = 'modal-button-secondary';
+    autoButton.textContent = 'Decide for Me (Auto)';
+    autoButton.addEventListener('click', () => {
+        // Send a message to let the bot decide
+        sendMessage('User priority choice: Auto');
+        modal.classList.add('hidden');
+    });
+    buttons.appendChild(autoButton);
+
+    // Show the modal
+    modal.classList.remove('hidden');
+}
+
+
+// === Notification Popup Functions (Unchanged) ===
 function toggleNotificationPopup() {
     const popup = document.getElementById('notificationPopup');
     if (!popup) return;
