@@ -4,6 +4,25 @@
   <title>SmartSchedule Chatbot</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='Logo.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <!-- === V6: NEW MODAL STYLES === -->
+  <style>
+    /* Styles for the new priority conflict modal */
+    .modal-footer-buttons {
+      display: flex;
+      flex-direction: column; /* Stack buttons vertically */
+      gap: 10px; /* Add space between buttons */
+      width: 100%;
+    }
+
+    .modal-footer-buttons .modal-button-primary,
+    .modal-footer-buttons .modal-button-secondary {
+      width: 100%; /* Make buttons full-width */
+      margin: 0; /* Remove default margins */
+      text-align: center;
+    }
+  </style>
+  <!-- === END V6 STYLES === -->
 </head>
 <body>
 
@@ -59,6 +78,7 @@
     </div>
   </div>
 
+  <!-- Personalization Modal (Unchanged) -->
   <div id="personalizationModal" class="modal-backdrop hidden">
     <div class="modal-content">
 
@@ -87,7 +107,7 @@
           <h4>Ideal Study Windows</h4>
           <div id="study-windows-container">
             </div>
-          <button type.button" id="add-window-button" class="modal-button-secondary">Add Window</button>
+          <button type="button" id="add-window-button" class="modal-button-secondary">Add Window</button>
         </div>
 
       </div>
@@ -99,6 +119,29 @@
 
     </div>
   </div>
+
+  <!-- === V6: NEW PRIORITY CONFLICT MODAL === -->
+  <div id="priorityConflictModal" class="modal-backdrop hidden">
+    <div class="modal-content" style="max-width: 400px;"> <!-- Smaller modal -->
+
+      <div class="modal-header">
+        <h3>Scheduling Conflict</h3>
+        <!-- No close button, user must make a choice -->
+      </div>
+
+      <div class="modal-body" id="priority-modal-body-content">
+        <!-- Content is dynamically set by script.js -->
+        <p>The AI planner found two tasks with the same deadline and priority. Which one should it work on first?</p>
+      </div>
+
+      <div class="modal-footer" id="priority-modal-footer-buttons">
+        <!-- Buttons are dynamically set by script.js -->
+      </div>
+
+    </div>
+  </div>
+  <!-- === END V6 MODAL === -->
+
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
