@@ -29,7 +29,7 @@ users_collection = db["users"]
 # Initialize OpenAI client
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
-# === V4 SYSTEM PROMPT & TOOLS (Unchanged from your file) ===
+# === V7 SYSTEM PROMPT (Daily Check-in Updated) ===
 SYSTEM_PROMPT = """
 You are a 'Smart Study Scheduler' assistant. Your goal is to be a proactive, intelligent planner for the user.
 
@@ -61,8 +61,8 @@ You are a 'Smart Study Scheduler' assistant. Your goal is to be a proactive, int
         * Call the `get_priority_list(hours=2)` tool.
         * Present this list: "Got it. No specific plan. Here is your priority task list for today, which should take about 2 hours: [List from tool]."
     * **IF User says "I only have 1 hour at lunch":** (A new, specific constraint)
-        * Call `reschedule_day(new_constraints="1 hour at lunch, low-focus")`.
-        * Present the new plan: "No problem. [Response from tool, e.g., 'I recommend we use that 1 hour for History (Memorization) instead...']"
+        * You MUST parse this into a structured time (e.g., 12:00 to 13:00) and call `reschedule_day(time_blocks=[{"start_time": "12:00", "end_time": "13:00", "focus_level": "low"}])`.
+        * Present the new plan: "No problem. [Response from tool, e.g., 'OK, I've re-planned your schedule...']"
 
 4.  **DATA ENTRY (Your main job):**
     * If the user is not in a planning flow, just add/update data.
@@ -73,6 +73,7 @@ You are a 'Smart Study Scheduler' assistant. Your goal is to be a proactive, int
     * If the user asks "Can you make my plan?" or "Update my plan", call the `run_planner_engine()` tool.
 """
 
+# === V8 TOOLS (Loop Fix) ===
 tools = [
     {
         "type": "function",
@@ -160,8 +161,10 @@ tools = [
                                       "description": "The new type (optional)."},
                     "new_deadline": {"type": "string",
                                      "description": "The new deadline YYYY-MM-DDTHH:MM:SS (optional)."},
-                    "new_priority": {"type": "string", "enum": ["low", "medium", "high"],
+                    # === START OF V8 FIX: Added "top" to enum ===
+                    "new_priority": {"type": "string", "enum": ["top", "high", "medium", "low"],
                                      "description": "Optional: The new priority."},
+                    # === END OF V8 FIX ===
                     "new_duration_hours": {"type": "number", "description": "Optional: The new estimated duration."}
                 },
                 "required": ["current_name"],
@@ -256,14 +259,25 @@ tools = [
         "type": "function",
         "function": {
             "name": "reschedule_day",
-            "description": "Re-plans the current day based on new user constraints.",
+            "description": "Re-plans the *current day* based on a new, specific set of available time blocks. This OVERRIDES the user's default study windows for today only.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "new_constraints": {"type": "string",
-                                        "description": "A natural language description of the new constraints (e.g., 'only 1 hour at lunch, low-focus')"}
+                    "time_blocks": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "start_time": {"type": "string", "description": "HH:MM format"},
+                                "end_time": {"type": "string", "description": "HH:MM format"},
+                                "focus_level": {"type": "string", "enum": ["high", "medium", "low"],
+                                                "description": "Optional focus."}
+                            },
+                            "required": ["start_time", "end_time"]
+                        }
+                    }
                 },
-                "required": ["new_constraints"]
+                "required": ["time_blocks"]
             }
         }
     },
@@ -276,9 +290,6 @@ tools = [
         }
     }
 ]
-
-
-# === END OF CHANGE ===
 
 
 # ---------- AUTH ROUTES (Unchanged) ----------
@@ -363,7 +374,6 @@ def save_personalization():
         # 3. Re-run the planner engine
         planner_response = run_planner_engine_db(username, {})
 
-        # === START OF V6 CHANGE: Handle planner response ===
         if planner_response["status"] == "conflict":
             return jsonify({
                 "reply": "Settings saved! But I found a scheduling conflict. Please choose which task to prioritize first:",
@@ -372,14 +382,13 @@ def save_personalization():
             })
         else:
             return jsonify({"reply": f"Settings saved! {planner_response['message']}"})
-        # === END OF V6 CHANGE ===
 
     except Exception as e:
         print(f"Error in /save_personalization: {e}")
         return jsonify({"reply": "Sorry, there was an error saving your settings."}), 500
 
 
-# --- This is our "ADD" function (Unchanged from your file) ---
+# --- This is our "ADD" function (Unchanged) ---
 def update_user_data(username, data_type, data):
     if data_type == "class":
         users_collection.update_one({"username": username}, {"$push": {"schedule": data}})
@@ -396,7 +405,7 @@ def update_user_data(username, data_type, data):
     return f"OK, I've added the new {data_type} to your schedule."
 
 
-# --- This is our "UPDATE TASK" function (Unchanged from your file) ---
+# --- This is our "UPDATE TASK" function (Unchanged) ---
 def update_task_details_db(username, args):
     current_name = args.get("current_name")
 
@@ -441,7 +450,6 @@ def update_task_details_db(username, args):
     )
 
     if result.modified_count == 0:
-        # This check is technically redundant now but good for safety
         return f"Sorry, I couldn't find an item named '{current_name}' to update."
 
     if new_name:
@@ -527,7 +535,7 @@ def auto_cleanup_past_items(username):
         print(f"Error during auto-cleanup for {username}: {e}")
 
 
-# --- NEW PLANNING FUNCTIONS (Unchanged) ---
+# --- NEW PLANNING FUNCTIONS (reschedule_day_db Updated) ---
 
 def save_study_windows_db(username, args):
     windows = args.get("windows", [])
@@ -572,17 +580,34 @@ def get_priority_list_db(username, args):
 
 
 def reschedule_day_db(username, args):
-    constraints = args.get("new_constraints", "No constraints")
-    # This is a stub for a very complex function.
-    new_task = "History (Memorization)" if "history" in constraints.lower() else "Quick Task Review"
-    return (f"No problem. Based on '{constraints}', "
-            f"I recommend you focus on: **{new_task}**. "
-            "I've moved your other scheduled items to 'Flex Time'.")
+    """
+    This function is a pass-through. It takes the structured time blocks
+    from the AI and passes them to the Master Planner as a daily override.
+    """
+    # 1. Get the new time blocks from the AI
+    time_blocks = args.get("time_blocks", [])
+
+    # 2. Prepare the override
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    daily_overrides = {
+        today_str: time_blocks
+    }
+
+    # 3. Call the Master Planner, passing in this new override
+    planner_args = {
+        "daily_overrides": daily_overrides,
+        "force_auto": True
+    }
+    planner_response = run_planner_engine_db(username, planner_args)
+
+    # 4. Return the result to the user
+    return f"OK, I've re-planned your schedule for today. {planner_response['message']}"
 
 
-# === START OF V6 PLANNER ENGINE ===
+# === START OF V8 PLANNER ENGINE (Loop Fix) ===
 # Define our default "heuristic" values
 DEFAULT_PRIORITY_MAP = {
+    "top": 0,  # <-- V8 FIX: Added "top" to break loops
     "high": 1, "medium": 2, "low": 3,
     # Fallback scores based on type
     "exam": 1, "project": 2, "quiz": 3, "assignment": 4, "seatwork": 5
@@ -608,18 +633,16 @@ def _time_to_minutes(time_str):
 
 def run_planner_engine_db(username, args):
     """
-    This is the V6 "Master Planner" engine.
-    It generates a multi-day study plan based on user's
-    tasks, deadlines, preferences, and detects conflicts.
+    This is the V8 "Master Planner" engine.
     """
-    print("--- Running V6 Planner Engine ---")
+    print("--- Running V8 Planner Engine ---")
     user_data = users_collection.find_one({"username": username})
     now = datetime.now()
 
-    # Check if user forced auto-scheduling
     force_auto = args.get("force_auto", False)
+    daily_overrides = args.get("daily_overrides", {})
 
-    # 1. Build the prioritized "To-Do List" (V4 Logic)
+    # 1. Build the prioritized "To-Do List"
     work_items = []
     all_items = user_data.get("tasks", []) + user_data.get("tests", [])
     for item in all_items:
@@ -649,7 +672,8 @@ def run_planner_engine_db(username, args):
             print(f"Skipping item due to parse error: {item.get('name')}, {e}")
 
     # 2. Sort the list (multi-level sort)
-    work_items.sort(key=lambda x: (x["deadline"], x["priority"]))
+    # V8 FIX: We must sort by priority *first* then deadline to respect "top"
+    work_items.sort(key=lambda x: (x["priority"], x["deadline"]))
 
     if not work_items:
         print("Planner: No work items to schedule.")
@@ -661,22 +685,23 @@ def run_planner_engine_db(username, args):
             f"  - {item['name']} (Priority: {item['priority']}, Deadline: {item['deadline'].strftime('%Y-%m-%d')}, Blocks: {item['blocks_needed']})")
     print("---------------------------------------")
 
-    # 3. V6 CONFLICT DETECTION
-    # Check for a "hard tie" at the top of the list
+    # 3. V8 CONFLICT DETECTION (Iterative)
+    # Check for a "hard tie" anywhere in the list
     if not force_auto and len(work_items) > 1:
-        item1 = work_items[0]
-        item2 = work_items[1]
-        # Check if deadlines are on the same day and priorities are identical
-        if (item1["deadline"].date() == item2["deadline"].date() and
-                item1["priority"] == item2["priority"]):
-            print("Planner: Hard conflict detected. Asking user.")
-            return {
-                "status": "conflict",
-                "options": [item1["name"], item2["name"]]
-            }
+        for i in range(len(work_items) - 1):
+            item1 = work_items[i]
+            item2 = work_items[i + 1]
+
+            # Check if adjacent items are tied
+            if (item1["deadline"].date() == item2["deadline"].date() and
+                    item1["priority"] == item2["priority"]):
+                print(f"Planner: Hard conflict detected between '{item1['name']}' and '{item2['name']}'. Asking user.")
+                return {
+                    "status": "conflict",
+                    "options": [item1["name"], item2["name"]]
+                }
 
     # 4. Build Availability Map (14 days, in 60-min blocks)
-    # This is a 2D map: availability_map[date_str][hour] = "status"
     availability_map = {}
     start_date = now.date()
     for i in range(14):  # Plan for the next 14 days
@@ -692,17 +717,16 @@ def run_planner_engine_db(username, args):
     for day_map in availability_map.values():
         for hour in range(24):
             hour_min = hour * 60
-            # Handle overnight sleep
-            if sleep_min < awake_min:  # e.g., 23:00 to 07:00
+            if sleep_min > awake_min:
                 if hour_min >= sleep_min or hour_min < awake_min:
                     day_map[hour] = "sleep"
-            else:  # e.g., 01:00 to 09:00
+            else:
                 if sleep_min <= hour_min < awake_min:
                     day_map[hour] = "sleep"
 
     # Block out busy class times
     for class_item in user_data.get("schedule", []):
-        class_day_name = class_item.get("day")  # e.g., "Monday"
+        class_day_name = class_item.get("day")
         start_min = _time_to_minutes(class_item.get("start_time", "00:00"))
         end_min = _time_to_minutes(class_item.get("end_time", "00:00"))
 
@@ -712,11 +736,10 @@ def run_planner_engine_db(username, args):
                 for hour in range(24):
                     hour_start_min = hour * 60
                     hour_end_min = hour_start_min + 59
-                    # Check for overlap
                     if max(start_min, hour_start_min) < min(end_min, hour_end_min):
                         day_map[hour] = "busy"
 
-    # 5. Create a flat list of available slots, prioritizing study_windows
+    # 5. Create a flat list of available slots, prioritizing study_windows & overrides
     available_slots = []
     non_preferred_slots = []
 
@@ -726,12 +749,33 @@ def run_planner_engine_db(username, args):
         day_dt = datetime.fromisoformat(day_str)
         day_name = DAY_OF_WEEK_MAP.get(day_dt.weekday())
 
+        if day_str in daily_overrides:
+            print(f"Planner: Applying daily override for {day_str}")
+            override_blocks = daily_overrides[day_str]
+            override_hours = set()
+            for block in override_blocks:
+                block_start_min = _time_to_minutes(block.get("start_time"))
+                block_end_min = _time_to_minutes(block.get("end_time"))
+                for hour in range(24):
+                    hour_start_min = hour * 60
+                    hour_end_min = hour_start_min + 59
+                    if max(block_start_min, hour_start_min) < min(block_end_min, hour_end_min) and (
+                            block_end_min - block_start_min > 0):
+                        override_hours.add(hour)
+
+            for hour in override_hours:
+                if day_map.get(hour) == "free":
+                    slot_time = time(hour, 0)
+                    available_slots.append({
+                        "date": day_str,
+                        "start_time": slot_time.strftime("%H:%M"),
+                        "end_time": (datetime.combine(day_dt, slot_time) + timedelta(hours=1)).strftime("%H:%M")
+                    })
+            continue
+
         for hour, status in day_map.items():
             if status == "free":
                 slot_time = time(hour, 0)
-                slot_dt = datetime.combine(day_dt, slot_time)
-
-                # Check if this "free" slot is inside a preferred study window
                 is_preferred = False
                 for window in study_windows:
                     if window.get("day") == day_name:
@@ -741,23 +785,19 @@ def run_planner_engine_db(username, args):
                         if win_start_min <= hour_min < win_end_min:
                             is_preferred = True
                             break
-
                 slot_data = {
                     "date": day_str,
                     "start_time": slot_time.strftime("%H:%M"),
                     "end_time": (datetime.combine(day_dt, slot_time) + timedelta(hours=1)).strftime("%H:%M")
                 }
-
-                # Add to the correct list
                 if is_preferred:
                     available_slots.append(slot_data)
                 else:
                     non_preferred_slots.append(slot_data)
 
-    # Final slot list: preferred slots first, then other free slots
     available_slots.extend(non_preferred_slots)
 
-    # 6. Run Round-Robin Scheduler (V3 Logic)
+    # 6. Run Round-Robin Scheduler
     new_plan = []
     total_blocks_needed = sum(item["blocks_needed"] for item in work_items)
 
@@ -767,18 +807,14 @@ def run_planner_engine_db(username, args):
     while total_blocks_needed > 0 and available_slots:
         made_progress = False
         for item in work_items:
-            # Check if this item still needs blocks
             if item["blocks_allocated"] < item["blocks_needed"]:
-                # Find the first available slot that is before the deadline
                 found_slot_index = -1
                 for i, slot in enumerate(available_slots):
                     slot_dt = datetime.fromisoformat(f"{slot['date']}T{slot['start_time']}")
                     if slot_dt < item["deadline"]:
                         found_slot_index = i
                         break
-
                 if found_slot_index != -1:
-                    # Book this slot
                     slot = available_slots.pop(found_slot_index)
                     new_plan.append({
                         "date": slot["date"],
@@ -789,8 +825,6 @@ def run_planner_engine_db(username, args):
                     item["blocks_allocated"] += 1
                     total_blocks_needed -= 1
                     made_progress = True
-
-        # If we went through all tasks and couldn't schedule (e.g., all slots are after deadline), break
         if not made_progress:
             print("Planner: Stopping. No more valid slots.")
             break
@@ -801,11 +835,11 @@ def run_planner_engine_db(username, args):
         {"$set": {"generated_plan": new_plan}}
     )
 
-    print("Planner: V6 run complete. New plan saved.")
+    print("Planner: V8 run complete. New plan saved.")
     return {"status": "success", "message": "I've regenerated your study plan."}
 
 
-# === END OF V6 PLANNER ENGINE ===
+# === END OF V8 PLANNER ENGINE ===
 
 
 @app.route("/chat", methods=["POST"])
@@ -822,10 +856,9 @@ def chat():
         session.pop("username", None)
         return jsonify({"reply": "Error: Your user data was not found. Please log in again."}), 401
 
-    # Get the *entire* chat history
     old_full_history = user_data.get("chat_history", [])
 
-    # === START OF V6 CHAT LOGIC ===
+    # === START OF V8 CHAT LOGIC (Loop Fix) ===
 
     # 1. Handle Modal Response
     # This is a special, non-AI path
@@ -834,18 +867,42 @@ def chat():
 
         if choice == "Auto":
             # User wants us to auto-schedule (round-robin)
-            # Run the planner, forcing it to skip conflict detection
             planner_response = run_planner_engine_db(username, {"force_auto": True})
             reply_to_send = f"OK, I'm scheduling both tasks. {planner_response['message']}"
+
         else:
             # User prioritized a specific task
             task_name = choice
-            update_task_details_db(username, {"current_name": task_name, "new_priority": "high"})
-            # Re-run the planner. The tie will now be broken.
+
+            # V8 FIX: Set priority to "top" (score 0) to permanently win all
+            # future tie-breaks, not just "high" (score 1).
+            update_task_details_db(username, {"current_name": task_name, "new_priority": "top"})
+
+            # Re-run the planner...
             planner_response = run_planner_engine_db(username, {})
+
+            # ...and check if the re-run found ANOTHER conflict
+            if planner_response["status"] == "conflict":
+                # Yes, it found another tie. We must ask the user again.
+                reply_to_send = f"OK, I've prioritized {task_name}. (Note: I found another scheduling conflict. Please choose again:)"
+
+                # Save history and return the NEW modal action
+                old_full_history.append({"role": "user", "content": user_message})
+                old_full_history.append({"role": "assistant", "content": reply_to_send})
+                users_collection.update_one(
+                    {"username": username},
+                    {"$set": {"chat_history": old_full_history}}
+                )
+                return jsonify({
+                    "reply": reply_to_send,
+                    "action": "show_priority_modal",
+                    "options": planner_response["options"]
+                })
+
+            # --- If no new conflict, proceed as normal ---
             reply_to_send = f"OK, I've prioritized {task_name}. {planner_response['message']}"
 
-        # Save this interaction to history
+        # Save this interaction to history (for non-conflict cases)
         old_full_history.append({"role": "user", "content": user_message})
         old_full_history.append({"role": "assistant", "content": reply_to_send})
         users_collection.update_one(
@@ -881,7 +938,7 @@ def chat():
     messages = messages_header + conversational_history
     messages.append({"role": "user", "content": user_message})
 
-    # === END OF V6 CHAT LOGIC ===
+    # === END OF V8 CHAT LOGIC ===
 
     try:
         response = openai_client.chat.completions.create(
@@ -934,13 +991,15 @@ def chat():
                     response_msg_for_user = get_daily_plan_db(username, arguments)
                 elif function_name == "get_priority_list":
                     response_msg_for_user = get_priority_list_db(username, arguments)
+
                 elif function_name == "reschedule_day":
                     response_msg_for_user = reschedule_day_db(username, arguments)
+                    planner_response = {"status": "success", "message": response_msg_for_user}
+                    run_planner = False
+
                 elif function_name == "run_planner_engine":
-                    # This is for when the *user* explicitly asks to run the planner
                     planner_response = run_planner_engine_db(username, {})
                     response_msg_for_user = planner_response.get("message", "OK, I've run the planner.")
-                    # Don't set run_planner=True, we already ran it
                 else:
                     response_msg_for_user = "Error: AI tried to call an unknown function."
 
@@ -954,17 +1013,16 @@ def chat():
         else:
             reply_to_send = response_message.content
 
-        # === START OF V6 CHANGE: Handle planner run & conflicts ===
         if run_planner and not planner_response:
-            # Planner needs to run automatically (due to save/update/delete)
             planner_response = run_planner_engine_db(username, {})
 
         if planner_response:
-            if planner_response["status"] == "conflict":
-                # A conflict was detected! Send the special action.
+            if function_name == "reschedule_day":
+                reply_to_send = planner_response['message']
+            elif planner_response["status"] == "conflict":
                 users_collection.update_one(
                     {"username": username},
-                    {"$set": {"chat_history": messages}}  # Save history up to this point
+                    {"$set": {"chat_history": messages}}
                 )
                 return jsonify({
                     "reply": f"{reply_to_send}. (Note: I found a scheduling conflict. Please choose which task to prioritize first:)",
@@ -972,9 +1030,7 @@ def chat():
                     "options": planner_response["options"]
                 })
             else:
-                # Success, just add the note.
                 reply_to_send += f" (Note: {planner_response['message']})"
-        # === END OF V6 CHANGE ===
 
         users_collection.update_one(
             {"username": username},
@@ -995,7 +1051,6 @@ def get_schedule():
 
     username = session["username"]
 
-    # Run cleanup *before* fetching data
     auto_cleanup_past_items(username)
 
     user_data = users_collection.find_one({"username": username})
