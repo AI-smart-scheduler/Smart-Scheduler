@@ -63,6 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   triggerDailyCheckin(); // Run the check on page load.
 
+  // === NEWLY ADDED ===
+  displayPersonalizedWelcome(); // Show personalized welcome message
+  // === END NEWLY ADDED ===
+
   // Add 'Enter' key listener to the chat input
   const userInput = document.getElementById('user-input');
   if (userInput) {
@@ -196,7 +200,50 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // === END OF PERSONALIZATION MODAL LOGIC ===
 
-});
+}); // <-- This is the end of DOMContentLoaded
+
+// === NEW FUNCTION: PERSONALIZED WELCOME ===
+/**
+ * Reads the username from the DOM and displays a personalized welcome message
+ * with prompt examples in the chat box.
+ * NOTE: This requires the 'data-username' attribute to be set on '.welcome-header' in index.html.
+ */
+function displayPersonalizedWelcome() {
+  const header = document.querySelector('.welcome-header');
+  const chatBox = document.getElementById('chat-box');
+
+  // Stop if the elements aren't found
+  if (!header || !chatBox) {
+    console.warn("Could not find .welcome-header or #chat-box for welcome message.");
+    return;
+  }
+
+  // Read the username from the 'data-username' attribute
+  const username = header.dataset.username;
+
+  if (username) {
+    const welcomeMsg = `
+      <div class="message bot-message">
+        Hello, <strong>${username}</strong>! I'm ready to help you plan.
+        <br><br>
+        Here are a few things you can say:
+        <ul>
+          <li>"Add a CS project due next Friday at 5 PM."</li>
+          <li>"I have a Math exam on December 10th."</li>
+          <li>"What do I have planned for this Friday?"</li>
+          <li>"Delete my 'Math exam'."</li>
+        </ul>
+      </div>
+    `;
+    chatBox.innerHTML += welcomeMsg;
+    // Scroll to the new message
+    setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 0);
+  } else {
+    console.warn("data-username attribute not found or is empty.");
+  }
+}
+// === END NEW FUNCTION ===
+
 
 // === Populates the selectors (Unchanged) ===
 function initializeSelectors() {
