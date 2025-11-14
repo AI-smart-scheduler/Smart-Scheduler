@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SmartSchedule Chatbot</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='Logo.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <!-- === V6: NEW MODAL STYLES === -->
+  <style>
+    /* Styles for the new priority conflict modal */
+    .modal-footer-buttons {
+      display: flex;
+      flex-direction: column; /* Stack buttons vertically */
+      gap: 10px; /* Add space between buttons */
+      width: 100%;
+    }
+
+    .modal-footer-buttons .modal-button-primary,
+    .modal-footer-buttons .modal-button-secondary {
+      width: 100%; /* Make buttons full-width */
+      margin: 0; /* Remove default margins */
+      text-align: center;
+    }
+  </style>
+  <!-- === END V6 STYLES === -->
+</head>
+<body>
+
+  <div class="timetable-container">
+    <div class="timetable-header">
+      <div class="date-selectors">
+        <select id="month-select" class="date-select"></select>
+        <select id="year-select" class="date-select"></select>
+      </div>
+      <div>
+        <button class="nav-button" onclick="openAddTaskModal()">Task+</button>
+        <button class="nav-button" onclick="loadPreviousWeek()">Prev</button>
+        <button class="nav-button" onclick="loadNextWeek()">Next</button>
+      </div>
+    </div>
+    <div class="day-cards-wrapper" id="day-cards-wrapper">
+      </div>
+    <div id="schedule-details" style="flex-grow: 1; margin-top: 20px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; overflow-y: auto;">
+        <h4 style="margin-top:0;">Schedule Details</h4>
+        </div>
+  </div>
+
+
+  <div class="chat-container">
+    <div class="welcome-header">
+      <h2>Welcome, {{ username }}!</h2>
+      <div class="notification-icon-container">
+          <svg id="notification-bell" class="notification-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" onclick="toggleNotificationPopup()">
+            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
+          </svg>
+           <div id="notificationPopup" class="notification-popup">
+             <div class="popup-content">
+
+               <h3>Pending Task Reminders</h3>
+               <div id="notification-list">
+                 </div>
+             </div>
+           </div>
+      </div>
+    </div>
+
+    <div class="header-links">
+      <a href="{{ url_for('logout') }}">Logout</a>
+      <a href="#" id="settings-button">Settings</a>
+    </div>
+    <div id="chat-box"></div>
+
+    <div class="input-area">
+      <input id="user-input" type="text" placeholder="Type a message..." />
+      <button onclick="sendMessage()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.5 13a.5.5 0 0 1-.931-.11L8.382 9.3 2.427 6.567a.5.5 0 0 1 .11-.93l13-5.5a.5.5 0 0 1 .317 0zM6.832 8.687l1.57.T.813 3.406L14.615 1.7 6.832 8.687z"/>
+        </svg></button>
+    </div>
+  </div>
+
+  <!-- Personalization Modal (Unchanged) -->
+  <div id="personalizationModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h3>Personalization</h3>
+        <span class="modal-close" id="modal-close-button">&times;</span>
+      </div>
+
+      <div class="modal-body">
+
+        <div class="modal-section">
+          <h4>Sleep & Wake Times</h4>
+          <div class="time-inputs">
+            <div class="form-group">
+              <label for="awake-time">I wake up at:</label>
+              <input type="time" id="awake-time" class="modal-input">
+            </div>
+            <div class="form-group">
+              <label for="sleep-time">I go to sleep at:</label>
+              <input type="time" id="sleep-time" class="modal-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h4>Ideal Study Windows</h4>
+          <div id="study-windows-container">
+            </div>
+          <button type="button" id="add-window-button" class="modal-button-secondary">Add Window</button>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="modal-cancel-button" class="modal-button-secondary">Cancel</button>
+        <button type="button" id="modal-save-button" class="modal-button-primary">Save</button>
+      </div>
+
+    </div>
+  </div>
+  <!-- Add Task Modal (Unchanged) --> 
+  <div id="addTaskModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+        <h2>Add a New Task</h2>
+
+        <label class="modal-label">Task Name</label>
+        <input id="task-name-input" type="text" class="modal-input">
+
+        <label class="modal-label">Task Type</label>
+        <select id="task-type-input" class="modal-input">
+            <option value="assignment">Assignment</option>
+            <option value="project">Project</option>
+            <option value="seatwork">Seatwork</option>
+        </select>
+
+        <label class="modal-label">Deadline</label>
+        <input id="task-deadline-input" type="datetime-local" class="modal-input">
+
+        <div class="modal-buttons">
+            <button id="task-cancel-button" class="modal-button-secondary">Cancel</button>
+            <button id="task-save-button" class="modal-button-primary">Add Task</button>
+        </div>
+    </div>
+</div>
+
+  <!-- === V6: NEW PRIORITY CONFLICT MODAL === -->
+  <div id="priorityConflictModal" class="modal-backdrop hidden">
+    <div class="modal-content" style="max-width: 400px;"> <!-- Smaller modal -->
+
+      <div class="modal-header">
+        <h3>Scheduling Conflict</h3>
+        <!-- No close button, user must make a choice -->
+      </div>
+
+      <div class="modal-body" id="priority-modal-body-content">
+        <!-- Content is dynamically set by script.js -->
+        <p>The AI planner found two tasks with the same deadline and priority. Which one should it work on first?</p>
+      </div>
+
+      <div class="modal-footer" id="priority-modal-footer-buttons">
+        <!-- Buttons are dynamically set by script.js -->
+      </div>
+
+    </div>
+  </div>
+  <!-- === END V6 MODAL === -->
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
